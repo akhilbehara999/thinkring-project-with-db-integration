@@ -24,6 +24,13 @@
     text-transform: uppercase;
 }
 
+.login-box h2 {
+    font-size: 1.8em;
+    color: var(--accent-color);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
 .login-box p {
     color: var(--light-text-color);
     margin-bottom: 30px;
@@ -114,9 +121,31 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-#login-message {
+#login-message, #signup-message {
     margin-top: 20px;
     color: var(--error-color);
+    min-height: 20px;
+}
+
+#signup-message {
+    color: var(--success-color);
+}
+
+.switch-form {
+    margin-top: 20px;
+    color: var(--light-text-color);
+}
+
+.switch-form a {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.switch-form a:hover {
+    color: var(--text-color);
+    text-decoration: underline;
 }
 
 .admin-access-btn {

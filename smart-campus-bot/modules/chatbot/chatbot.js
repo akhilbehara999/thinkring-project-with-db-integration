@@ -180,12 +180,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 async function askChatbot(question) {
-    const apiKey = localStorage.getItem('book-tools-api-key'); // Reuse shared key
+    // Use the global AI configuration function
+    let apiKey = '';
+    let model = 'openai/gpt-3.5-turbo'; // Default model for chatbot
+    
+    try {
+        const config = await getGlobalAIConfig();
+        console.log('Chatbot: Retrieved AI config');
+        // Use chatbot-specific API key and model if available, otherwise fall back to book tools
+        apiKey = config.chatbot?.apiKey || config.book.apiKey || '';
+        // For chatbot, we can use a specific model if configured, otherwise default
+        model = config.chatbot?.model || config.book.model || 'openai/gpt-3.5-turbo';
+        // Don't log the actual API key to prevent exposure
+        console.log('Chatbot: Using API Key: ' + (apiKey ? 'YES' : 'NO'));
+        console.log('Chatbot: Using Model:', model);
+    } catch (error) {
+        console.error('Error getting AI config:', error);
+        // Fallback to localStorage
+        apiKey = localStorage.getItem('book-tools-api-key') || '';
+    }
+    
     if (!apiKey) {
         return "Error: AI service is not configured. Please contact an administrator.";
     }
 
     try {
+        // Don't log the actual API key to prevent exposure
+        console.log('Chatbot: Making API call with model:', model);
+
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -193,20 +215,25 @@ async function askChatbot(question) {
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              "model": "deepseek/deepseek-r1-0528:free",
+              "model": model,
               "messages": [
                 { "role": "system", "content": "You are a helpful AI assistant for a university campus." },
                 { "role": "user", "content": question }
               ]
             })
         });
+
         if (!response.ok) {
-            return "Sorry, the AI service is currently unavailable.";
+            const errorData = await response.json();
+            return `Error: ${errorData.error?.message || 'Failed to get response from AI service'}`;
         }
+
         const data = await response.json();
-        return data.choices[0].message.content;
+        console.log('Chatbot: API Response received');
+        return data.choices[0].message.content.trim();
     } catch (error) {
-        return "Error connecting to AI service. Please check your network.";
+        console.error("Chatbot Error:", error);
+        return `Error: ${error.message || 'Failed to connect to AI service'}`;
     }
 }
 

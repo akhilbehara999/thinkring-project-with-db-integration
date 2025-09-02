@@ -8,14 +8,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000); // Delay for login page to show loading effect
     }
     
+    // Form elements
     const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
+    const signupUsernameInput = document.getElementById('signup-username');
+    const signupPasswordInput = document.getElementById('signup-password');
+    const confirmPasswordInput = document.getElementById('confirm-password');
     const loginMessage = document.getElementById('login-message');
+    const signupMessage = document.getElementById('signup-message');
     const adminAccessBtn = document.getElementById('admin-access-btn');
+    const showSignupLink = document.getElementById('show-signup');
+    const showSigninLink = document.getElementById('show-signin');
+    const signinForm = document.getElementById('signin-form');
+    const signupForm = document.getElementById('signup-form');
+
+    // Clear form fields on page load to ensure they start empty
+    if (usernameInput) usernameInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+    if (signupUsernameInput) signupUsernameInput.value = '';
+    if (signupPasswordInput) signupPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
 
     let failedLoginAttempts = 0;
     const maxLoginAttempts = 3;
+
+    // Toggle between signin and signup forms
+    showSignupLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        signinForm.style.display = 'none';
+        signupForm.style.display = 'block';
+        loginMessage.textContent = '';
+    });
+
+    showSigninLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        signupForm.style.display = 'none';
+        signinForm.style.display = 'block';
+        signupMessage.textContent = '';
+    });
 
     // --- Interactive Particle Animation ---
     const particleContainer = document.getElementById('particle-container');
@@ -88,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         animateParticles();
     }
 
-
+    // Login form submission
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -106,7 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loginMessage.style.color = 'var(--light-text-color)';
         
         try {
-            const authResult = await authenticateUser(username, password);
+            // Use data service for authentication
+            const authResult = window.dataService ? 
+                await window.dataService.authenticateUser(username, password) :
+                await authenticateUser(username, password);
             
             if (authResult.success) {
                 loginMessage.textContent = 'Authentication successful. Redirecting...';
@@ -114,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 speak('Authentication successful. Redirecting to your dashboard.');
 
                 // Store session token and user info
-                localStorage.setItem('sessionToken', `token-${Date.now()}`);
+                localStorage.setItem('authToken', authResult.token); // Use the real JWT token
                 localStorage.setItem('userRole', authResult.user.role);
                 localStorage.setItem('username', authResult.user.username);
 
@@ -147,10 +182,133 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    adminAccessBtn.addEventListener('click', () => {
-        // A simple "secret" way to fill in admin credentials
-        usernameInput.value = 'KAB';
-        passwordInput.value = '';
-        passwordInput.focus();
+    // Register form submission
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = signupUsernameInput.value;
+        const password = signupPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        
+        // Basic validation
+        if (password !== confirmPassword) {
+            signupMessage.textContent = 'Passwords do not match.';
+            signupMessage.style.color = 'var(--error-color)';
+            return;
+        }
+        
+        if (password.length < 6) {
+            signupMessage.textContent = 'Password must be at least 6 characters long.';
+            signupMessage.style.color = 'var(--error-color)';
+            return;
+        }
+        
+        // Show loading state
+        signupMessage.textContent = 'Creating account...';
+        signupMessage.style.color = 'var(--light-text-color)';
+        
+        try {
+            // Use data service for registration
+            const registerResult = window.dataService ? 
+                await window.dataService.registerUserPublic({ username, password }) :
+                await registerUser(username, password);
+            
+            if (registerResult.success) {
+                signupMessage.textContent = 'Account created successfully! Redirecting to login...';
+                signupMessage.style.color = 'var(--success-color)';
+                speak('Account created successfully! Redirecting to login.');
+                
+                // Automatically switch to login form after successful registration
+                setTimeout(() => {
+                    signupForm.style.display = 'none';
+                    signinForm.style.display = 'block';
+                    signupMessage.textContent = '';
+                    
+                    // Pre-fill username in login form
+                    usernameInput.value = username;
+                    passwordInput.focus();
+                }, 2000);
+            } else {
+                signupMessage.textContent = registerResult.message;
+                signupMessage.style.color = 'var(--error-color)';
+                speak(registerResult.message);
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            signupMessage.textContent = 'Registration service temporarily unavailable.';
+            signupMessage.style.color = 'var(--error-color)';
+            speak('Registration service temporarily unavailable.');
+        }
     });
+
+    // Admin access button
+    if (adminAccessBtn) {
+        adminAccessBtn.addEventListener('click', () => {
+            // Pre-fill admin credentials for demo purposes
+            usernameInput.value = 'KAB';
+            passwordInput.value = '7013432177@akhil';
+            passwordInput.focus();
+        });
+    }
+
+    // Form validation helpers
+    function validateField(field) {
+        if (field.value.trim() === '') {
+            field.style.borderColor = 'var(--error-color)';
+            return false;
+        } else {
+            field.style.borderColor = 'var(--accent-color)';
+            return true;
+        }
+    }
+
+    // Add validation to form fields
+    if (usernameInput) usernameInput.addEventListener('input', () => validateField(usernameInput));
+    if (passwordInput) passwordInput.addEventListener('input', () => validateField(passwordInput));
+    if (signupUsernameInput) signupUsernameInput.addEventListener('input', () => validateField(signupUsernameInput));
+    if (signupPasswordInput) signupPasswordInput.addEventListener('input', () => validateField(signupPasswordInput));
+    if (confirmPasswordInput) confirmPasswordInput.addEventListener('input', () => validateField(confirmPasswordInput));
+
+    // Authentication functions (fallback if data service is not available)
+    async function authenticateUser(username, password) {
+        try {
+            const response = await fetch('http://localhost:3000/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Authentication error:', error);
+            return {
+                success: false,
+                message: 'Authentication service unavailable'
+            };
+        }
+    }
+
+    async function registerUser(username, password) {
+        try {
+            const response = await fetch('http://localhost:3000/api/users/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Registration error:', error);
+            return {
+                success: false,
+                message: 'Registration service unavailable'
+            };
+        }
+    }
 });

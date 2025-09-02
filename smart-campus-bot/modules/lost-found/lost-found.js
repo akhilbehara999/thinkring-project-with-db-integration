@@ -13,11 +13,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const userView = document.getElementById('user-view');
     const adminView = document.getElementById('admin-view');
 
-    let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+    // Use backend API instead of localStorage
+    let items = [];
 
     // Check for admin view
     const urlParams = new URLSearchParams(window.location.search);
     const isAdminView = urlParams.get('view') === 'admin';
+
+    // Debugging: Check if dataService is available
+    console.log('Data service available:', !!window.dataService);
+    if (window.dataService) {
+        console.log('Data service baseURL:', window.dataService.baseURL);
+    } else {
+        console.warn('Data service not available, will use localStorage fallback');
+    }
+
+    // Load items from backend
+    loadItems();
 
     if (isAdminView) {
         document.body.classList.add('admin-mode');
@@ -25,13 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
         adminView.style.display = 'block';
         document.querySelector('.back-link').href = '../../admin.html';
         document.querySelector('h1').textContent = 'Manage Lost & Found';
-        renderAdminTable();
-        renderAdminAnalytics();
+        // Admin table will be rendered after items are loaded
     } else {
         document.body.classList.add('user-mode');
         userView.style.display = 'block';
         adminView.style.display = 'none';
-        renderItems();
+        // User items will be rendered after items are loaded
     }
 
     if(itemNameInput) itemNameInput.addEventListener('input', () => validateField(itemNameInput));
@@ -41,6 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
         itemImageInput.addEventListener('change', () => {
             const file = itemImageInput.files[0];
             if (file) {
+                // Check file size (max 2MB)
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('Image size should be less than 2MB');
+                    itemImageInput.value = '';
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     imagePreview.src = e.target.result;
@@ -54,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if(reportForm) {
-        reportForm.addEventListener('submit', (e) => {
+        reportForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const isNameValid = validateField(itemNameInput);
@@ -65,8 +83,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Show loading state
+            const submitButton = reportForm.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = 'Submitting...';
+            submitButton.disabled = true;
+
             const newItem = {
-                id: Date.now(),
                 name: itemNameInput.value,
                 description: itemDescriptionInput.value,
                 type: document.getElementById('item-type').value,
@@ -74,25 +97,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: document.getElementById('item-date').value,
                 location: document.getElementById('item-location').value,
                 contact: document.getElementById('item-contact').value,
-                image: imagePreview.src.startsWith('data:image') ? imagePreview.src : null,
-                reportedAt: new Date(),
-                reportedBy: localStorage.getItem('username') || 'anonymous',
-                status: 'pending'
+                image: imagePreview.src.startsWith('data:image') ? imagePreview.src : null
             };
 
-            items.push(newItem);
-            localStorage.setItem('lost-found-items', JSON.stringify(items));
-            alert('Your report has been submitted for review.');
-
-            reportForm.reset();
-            imagePreview.style.display = 'none';
-            renderItems(); // Re-render the user's view
+            try {
+                console.log('Attempting to submit item:', newItem);
+                console.log('Data service available:', !!window.dataService);
+                
+                if (window.dataService) {
+                    console.log('Using data service to create item');
+                    const result = await window.dataService.createLostFoundItem(newItem);
+                    console.log('API response:', result);
+                    
+                    if (result.success) {
+                        alert('Your report has been submitted successfully!');
+                        reportForm.reset();
+                        imagePreview.style.display = 'none';
+                        // Reload items to show the new one
+                        await loadItems();
+                    } else {
+                        alert(result.message || 'Failed to submit your report. Please try again.');
+                    }
+                } else {
+                    console.log('Falling back to localStorage');
+                    // Fallback to localStorage
+                    newItem.id = Date.now();
+                    newItem.reportedAt = new Date();
+                    newItem.reportedBy = localStorage.getItem('username') || 'anonymous';
+                    newItem.status = 'pending';
+                    
+                    let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+                    items.push(newItem);
+                    localStorage.setItem('lost-found-items', JSON.stringify(items));
+                    alert('Your report has been submitted for review.');
+                    reportForm.reset();
+                    imagePreview.style.display = 'none';
+                    loadItems(); // Re-render the user's view
+                }
+            } catch (error) {
+                console.error('Error submitting report:', error);
+                alert('An error occurred while submitting your report. Please try again.');
+            } finally {
+                // Restore button state
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            }
         });
     }
 
-    if(searchBar) searchBar.addEventListener('input', renderItems);
-    if(filterStatusEl) filterStatusEl.addEventListener('change', renderItems);
-    if(sortByEl) sortByEl.addEventListener('change', renderItems);
+    if(searchBar) searchBar.addEventListener('input', handleSearch);
+    if(filterStatusEl) filterStatusEl.addEventListener('change', loadItems);
+    if(sortByEl) sortByEl.addEventListener('change', loadItems);
 
 
     // --- Modal Logic ---
@@ -144,6 +199,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Load items from backend or localStorage
+    async function loadItems() {
+        try {
+            console.log('Loading items, data service available:', !!window.dataService);
+            
+            if (window.dataService) {
+                // For search, use search endpoint
+                if (searchBar && searchBar.value.trim() !== '') {
+                    console.log('Searching items with query:', searchBar.value);
+                    items = await window.dataService.searchLostFoundItems(searchBar.value);
+                } else {
+                    console.log('Loading all items from API');
+                    items = await window.dataService.getLostFoundItems();
+                }
+                console.log('Items loaded from API:', items);
+            } else {
+                console.log('Loading items from localStorage');
+                // Fallback to localStorage
+                items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+                console.log('Items loaded from localStorage:', items);
+            }
+            
+            // Apply filters and sorting
+            renderItems();
+            
+            // If in admin view, also render admin table
+            if (isAdminView) {
+                renderAdminTable();
+                renderAdminAnalytics();
+            }
+        } catch (error) {
+            console.error('Error loading items:', error);
+            // Fallback to localStorage
+            items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+            renderItems();
+            if (isAdminView) {
+                renderAdminTable();
+                renderAdminAnalytics();
+            }
+        }
+    }
+
+    function handleSearch() {
+        // Debounce search to avoid too many API calls
+        clearTimeout(handleSearch.timeout);
+        handleSearch.timeout = setTimeout(() => {
+            loadItems();
+        }, 300);
+    }
 
     function renderItems() {
         if(!itemList) return;
@@ -156,15 +260,17 @@ document.addEventListener('DOMContentLoaded', () => {
             itemsToRender = itemsToRender.filter(item => item.type === filterValue);
         }
 
-        // 2. Filter by search term
-        const searchTerm = searchBar.value.toLowerCase();
-        if (searchTerm) {
-            itemsToRender = itemsToRender.filter(item =>
-                item.name.toLowerCase().includes(searchTerm) ||
-                item.description.toLowerCase().includes(searchTerm) ||
-                item.category.toLowerCase().includes(searchTerm) ||
-                item.location.toLowerCase().includes(searchTerm)
-            );
+        // 2. Filter by search term (if not using search API)
+        if (!window.dataService && searchBar) {
+            const searchTerm = searchBar.value.toLowerCase();
+            if (searchTerm) {
+                itemsToRender = itemsToRender.filter(item =>
+                    item.name.toLowerCase().includes(searchTerm) ||
+                    item.description.toLowerCase().includes(searchTerm) ||
+                    item.category.toLowerCase().includes(searchTerm) ||
+                    item.location.toLowerCase().includes(searchTerm)
+                );
+            }
         }
 
         // 3. Sort
@@ -195,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </p>
                 <p>${sanitizeInput(item.description)}</p>
                 <small>Last Seen/Found: ${item.location} on ${item.date}</small>
-                <button class="contact-btn" data-id="${item.id}">Contact</button>
+                <button class="contact-btn" data-id="${item.id || item._id}">Contact</button>
             `;
             itemList.appendChild(itemCard);
         });
@@ -207,7 +313,8 @@ function findMatches(currentItem, allItems) {
     const currentNameWords = currentItem.name.toLowerCase().split(' ');
 
     for (const otherItem of allItems) {
-        if (otherItem.id === currentItem.id || otherItem.status === 'resolved' || otherItem.type === currentItem.type) {
+        if ((otherItem.id === currentItem.id || otherItem._id === currentItem._id) || 
+            otherItem.status === 'resolved' || otherItem.type === currentItem.type) {
             continue;
         }
 
@@ -249,10 +356,10 @@ function findMatches(currentItem, allItems) {
                 <td>${item.date}</td>
                 <td><span class="status-badge status-${item.status}">${item.status}</span></td>
                 <td>
-                    <button class="action-btn approve-btn" data-id="${item.id}" title="Approve">✔️</button>
-                    <button class="action-btn resolve-btn" data-id="${item.id}" title="Mark Resolved">🏁</button>
-                    <button class="action-btn flag-btn" data-id="${item.id}" title="Flag Item">🚩</button>
-                    <button class="action-btn delete-btn" data-id="${item.id}" title="Delete">🗑️</button>
+                    <button class="action-btn approve-btn" data-id="${item.id || item._id}" title="Approve">✔️</button>
+                    <button class="action-btn resolve-btn" data-id="${item.id || item._id}" title="Mark Resolved">🏁</button>
+                    <button class="action-btn flag-btn" data-id="${item.id || item._id}" title="Flag Item">🚩</button>
+                    <button class="action-btn delete-btn" data-id="${item.id || item._id}" title="Delete">🗑️</button>
                 </td>
             `;
         });
@@ -263,12 +370,21 @@ function findMatches(currentItem, allItems) {
      * @param {number} itemId The ID of the item to update.
      * @param {string} newStatus The new status ('pending', 'approved', 'resolved').
      */
-    function updateItemStatus(itemId, newStatus) {
-        const itemIndex = items.findIndex(item => item.id === itemId);
-        if (itemIndex > -1) {
-            items[itemIndex].status = newStatus;
-            localStorage.setItem('lost-found-items', JSON.stringify(items));
-            renderAdminItems();
+    async function updateItemStatus(itemId, newStatus) {
+        // This would need to be implemented with backend API calls
+        // For now, we'll keep the localStorage implementation as a fallback
+        if (window.dataService) {
+            // TODO: Implement update status API call
+            console.log('Update status API call needed for item:', itemId, 'status:', newStatus);
+        } else {
+            // Fallback to localStorage
+            let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+            const itemIndex = items.findIndex(item => item.id == itemId);
+            if (itemIndex > -1) {
+                items[itemIndex].status = newStatus;
+                localStorage.setItem('lost-found-items', JSON.stringify(items));
+                loadItems();
+            }
         }
     }
 
@@ -339,24 +455,31 @@ function findMatches(currentItem, allItems) {
             } else if (command.includes('show found items')) {
                 speak('Filtering to show found items.');
                 filterStatusEl.value = 'found';
-                renderItems();
+                loadItems();
             } else if (command.includes('show lost items')) {
                 speak('Filtering to show lost items.');
                 filterStatusEl.value = 'lost';
-                renderItems();
+                loadItems();
             } else if (command.includes('show all items')) {
                 speak('Showing all items.');
                 filterStatusEl.value = 'all';
-                renderItems();
+                loadItems();
             }
 
             // Admin-specific commands
             if (isAdminView && command.includes('delete flagged items')) {
                 if (confirm('Are you sure you want to delete all flagged items?')) {
                     speak('Deleting all flagged items.');
-                    items = items.filter(item => !item.isFlagged);
-                    localStorage.setItem('lost-found-items', JSON.stringify(items));
-                    renderAdminTable();
+                    // This would need to be implemented with backend API calls
+                    if (window.dataService) {
+                        // TODO: Implement delete flagged items API call
+                        console.log('Delete flagged items API call needed');
+                    } else {
+                        // Fallback to localStorage
+                        items = items.filter(item => !item.isFlagged);
+                        localStorage.setItem('lost-found-items', JSON.stringify(items));
+                        loadItems();
+                    }
                 }
             }
         };
@@ -377,27 +500,82 @@ function findMatches(currentItem, allItems) {
     // --- Admin Table Action Logic ---
     const adminTableBody = document.querySelector('#admin-items-table tbody');
     if (adminTableBody) {
-        adminTableBody.addEventListener('click', (e) => {
+        adminTableBody.addEventListener('click', async (e) => {
             if (e.target.classList.contains('action-btn')) {
-                const itemId = parseInt(e.target.dataset.id, 10);
-                const itemIndex = items.findIndex(item => item.id === itemId);
-
-                if (itemIndex === -1) return;
-
+                const itemId = e.target.dataset.id;
+                
                 if (e.target.classList.contains('delete-btn')) {
                     if (confirm('Are you sure you want to delete this item?')) {
-                        items.splice(itemIndex, 1);
+                        try {
+                            if (window.dataService) {
+                                const result = await window.dataService.deleteLostFoundItem(itemId);
+                                if (result.success) {
+                                    alert('Item deleted successfully');
+                                    loadItems(); // Reload items
+                                } else {
+                                    alert(result.message || 'Failed to delete item');
+                                }
+                            } else {
+                                // Fallback to localStorage
+                                let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+                                const itemIndex = items.findIndex(item => item.id == itemId || item._id == itemId);
+                                if (itemIndex !== -1) {
+                                    items.splice(itemIndex, 1);
+                                    localStorage.setItem('lost-found-items', JSON.stringify(items));
+                                    loadItems();
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error deleting item:', error);
+                            alert('Failed to delete item. Please try again.');
+                        }
                     }
                 } else if (e.target.classList.contains('approve-btn')) {
-                    items[itemIndex].status = 'approved';
+                    // Update status to approved
+                    if (window.dataService) {
+                        // TODO: Implement update status API call
+                        console.log('Approve item API call needed for item:', itemId);
+                    } else {
+                        // Fallback to localStorage
+                        let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+                        const itemIndex = items.findIndex(item => item.id == itemId || item._id == itemId);
+                        if (itemIndex !== -1) {
+                            items[itemIndex].status = 'approved';
+                            localStorage.setItem('lost-found-items', JSON.stringify(items));
+                            loadItems();
+                        }
+                    }
                 } else if (e.target.classList.contains('resolve-btn')) {
-                    items[itemIndex].status = 'resolved';
+                    // Update status to resolved
+                    if (window.dataService) {
+                        // TODO: Implement update status API call
+                        console.log('Resolve item API call needed for item:', itemId);
+                    } else {
+                        // Fallback to localStorage
+                        let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+                        const itemIndex = items.findIndex(item => item.id == itemId || item._id == itemId);
+                        if (itemIndex !== -1) {
+                            items[itemIndex].status = 'resolved';
+                            localStorage.setItem('lost-found-items', JSON.stringify(items));
+                            loadItems();
+                        }
+                    }
                 } else if (e.target.classList.contains('flag-btn')) {
-                    items[itemIndex].isFlagged = !items[itemIndex].isFlagged; // Toggle flag
+                    // Toggle flag
+                    if (window.dataService) {
+                        // TODO: Implement flag toggle API call
+                        console.log('Flag item API call needed for item:', itemId);
+                    } else {
+                        // Fallback to localStorage
+                        let items = JSON.parse(localStorage.getItem('lost-found-items')) || [];
+                        const itemIndex = items.findIndex(item => item.id == itemId || item._id == itemId);
+                        if (itemIndex !== -1) {
+                            items[itemIndex].isFlagged = !items[itemIndex].isFlagged;
+                            localStorage.setItem('lost-found-items', JSON.stringify(items));
+                            loadItems();
+                        }
+                    }
                 }
-
-                localStorage.setItem('lost-found-items', JSON.stringify(items));
-                renderAdminTable();
             }
         });
     }

@@ -179,10 +179,14 @@ function setGlobalAIConfig(apiKey, model = 'openai/gpt-oss-20b:free') {
         localStorage.setItem('book-tools-api-key', apiKey);
         localStorage.setItem('book-tools-model', model);
 
+        // Set configuration for Chatbot module
+        localStorage.setItem('chatbot-api-key', apiKey);
+        localStorage.setItem('chatbot-model', model);
+
         console.log(`✅ Global AI Configuration Set:`);
         console.log(`   API Key: ${apiKey.substring(0, 10)}...`);
         console.log(`   Model: ${model}`);
-        console.log(`   Applied to: Quiz, Code Explainer, Book modules`);
+        console.log(`   Applied to: Quiz, Code Explainer, Book, Chatbot modules`);
 
         return true;
     } catch (error) {
@@ -193,10 +197,46 @@ function setGlobalAIConfig(apiKey, model = 'openai/gpt-oss-20b:free') {
 
 /**
  * Gets the current global AI configuration
- * @returns {object} Object containing API key and model for each module
+ * First tries to get from backend, falls back to localStorage
+ * @returns {Promise<object>} Object containing API key and model for each module
  */
-function getGlobalAIConfig() {
-    return {
+async function getGlobalAIConfig() {
+    // Try to get configuration from backend first
+    if (window.dataService) {
+        try {
+            const backendConfig = await window.dataService.getAIConfig();
+            console.log('Global: Backend config response received');
+            if (backendConfig) {
+                // Use the backend configuration
+                const config = {
+                    quiz: {
+                        apiKey: backendConfig.apiKey,
+                        model: backendConfig.model
+                    },
+                    codeExplainer: {
+                        apiKey: backendConfig.apiKey,
+                        model: backendConfig.model
+                    },
+                    book: {
+                        apiKey: backendConfig.apiKey,
+                        model: backendConfig.model
+                    },
+                    chatbot: {
+                        apiKey: backendConfig.apiKey,
+                        model: backendConfig.model
+                    }
+                };
+                // Don't log the actual config to prevent API key exposure
+                console.log('Global: Processed config with API key: ' + (config.quiz.apiKey ? 'YES' : 'NO'));
+                return config;
+            }
+        } catch (error) {
+            console.warn('Could not load AI config from backend, falling back to localStorage:', error);
+        }
+    }
+    
+    // Fall back to localStorage
+    const config = {
         quiz: {
             apiKey: localStorage.getItem('openrouter-api-key'),
             model: localStorage.getItem('ai-model')
@@ -208,8 +248,15 @@ function getGlobalAIConfig() {
         book: {
             apiKey: localStorage.getItem('book-tools-api-key'),
             model: localStorage.getItem('book-tools-model')
+        },
+        chatbot: {
+            apiKey: localStorage.getItem('chatbot-api-key') || localStorage.getItem('book-tools-api-key'),
+            model: localStorage.getItem('chatbot-model') || localStorage.getItem('book-tools-model')
         }
     };
+    // Don't log the actual config to prevent API key exposure
+    console.log('Global: localStorage config with API key: ' + (config.quiz.apiKey ? 'YES' : 'NO'));
+    return config;
 }
 
 /**
@@ -219,7 +266,8 @@ function clearGlobalAIConfig() {
     const keys = [
         'openrouter-api-key', 'ai-model',
         'code-explainer-api-key', 'code-explainer-model',
-        'book-tools-api-key', 'book-tools-model'
+        'book-tools-api-key', 'book-tools-model',
+        'chatbot-api-key', 'chatbot-model'
     ];
     
     keys.forEach(key => localStorage.removeItem(key));

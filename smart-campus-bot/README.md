@@ -7,6 +7,7 @@ A comprehensive, secure multi-page web application that transforms campus servic
 ### Prerequisites
 - Modern web browser with JavaScript enabled
 - Local web server (recommended for full functionality)
+- Node.js (v14 or higher) for backend API
 
 ### Installation & Setup
 
@@ -28,7 +29,15 @@ A comprehensive, secure multi-page web application that transforms campus servic
    php -S localhost:8000
    ```
 
-3. **Access the application**
+3. **Set up backend API** (optional but recommended for MongoDB integration)
+   ```bash
+   cd backend
+   npm install
+   # Update .env with your MongoDB credentials
+   npm start
+   ```
+
+4. **Access the application**
    - Open browser to `http://localhost:8000`
    - Or directly open `index.html` for basic functionality
 
@@ -120,7 +129,8 @@ smart-campus-bot/
 ├── js/                     # Core JavaScript
 │   ├── utils.js           # Utility functions
 │   ├── crypto-utils.js    # Security and encryption
-│   ├── data.js            # Data management
+│   ├── data.js            # Data management (legacy localStorage)
+│   ├── data-service.js    # Data service (MongoDB API)
 │   ├── global.js          # Global functionality
 │   ├── login.js           # Login handling
 │   ├── dashboard.js       # Dashboard logic
@@ -141,6 +151,15 @@ smart-campus-bot/
 │   ├── quiz/
 │   ├── storage/
 │   └── study-groups/
+├── backend/                # Backend API (Node.js + MongoDB)
+│   ├── config/            # Database configuration
+│   ├── models/            # Data models
+│   ├── controllers/       # Request handlers
+│   ├── routes/            # API routes
+│   ├── middleware/        # Authentication middleware
+│   ├── package.json       # Node.js dependencies
+│   ├── server.js          # Main server file
+│   └── README.md          # Backend documentation
 ├── tests/                  # Test suites
 │   ├── utils.test.js
 │   ├── crypto-utils.test.js
@@ -160,6 +179,13 @@ smart-campus-bot/
 - **Vanilla JavaScript (ES6+)**: Modern JavaScript without frameworks
 - **Web APIs**: Speech, IndexedDB, Crypto, File, Canvas
 
+**Backend**
+- **Node.js**: JavaScript runtime environment
+- **Express.js**: Web application framework
+- **MongoDB Atlas**: Cloud database service
+- **JWT**: JSON Web Tokens for authentication
+- **Bcrypt**: Password hashing
+
 **Security**
 - **PBKDF2**: Industry-standard password hashing
 - **AES-GCM**: Symmetric encryption for sensitive data
@@ -170,6 +196,7 @@ smart-campus-bot/
 - **localStorage**: User preferences and session data
 - **sessionStorage**: Temporary application state
 - **IndexedDB**: Large file storage and complex data
+- **MongoDB Atlas**: Cloud database for user management
 
 ## 🧪 Testing
 
@@ -198,207 +225,32 @@ smart-campus-bot/
 ## 🔧 Configuration
 
 ### Environment Variables
-The application uses localStorage for configuration:
 
-```javascript
-// Voice commands
-localStorage.setItem('voice-enabled', 'true');
+For the backend API, create a `.env` file in the `backend` directory with the following variables:
 
-// Session timeout (milliseconds)
-localStorage.setItem('session-timeout', '1800000'); // 30 minutes
+```env
+# MongoDB Atlas Connection
+MONGODB_URI=mongodb+srv://akhilbehara:7013432177@2006@cluster0.r6z5ekb.mongodb.net/smartcampus?retryWrites=true&w=majority&appName=Cluster0
 
-// API endpoints
-localStorage.setItem('api-base-url', 'https://api.example.com');
+# Server Configuration
+PORT=3000
+JWT_SECRET=smartcampus_secret_key_2025
+
+# CORS Configuration
+CLIENT_URL=http://localhost:8000
 ```
 
-### API Integration
+## 🚀 Deployment
 
-**External APIs Used:**
-- Quiz questions: `https://opentdb.com/api.php`
-- AI services: `https://openrouter.ai/api/v1/chat/completions`
+### Frontend Deployment
+1. Host the static files on any web server
+2. Ensure proper CORS configuration if using backend API
 
-**API Key Management:**
-```javascript
-// Secure API key storage
-await apiKeyManager.storeAPIKey('service-name', 'your-api-key');
-const apiKey = await apiKeyManager.retrieveAPIKey('service-name');
-```
-
-## 🚀 Performance
-
-### Optimization Features
-- **Lazy Loading**: Modules loaded on demand
-- **Code Splitting**: Separate bundles for different features
-- **Image Optimization**: WebP support with fallbacks
-- **Caching Strategy**: Intelligent browser caching
-- **Bundle Size**: Core bundle < 100KB
-
-### Performance Metrics
-- **First Contentful Paint**: < 1.5s
-- **Largest Contentful Paint**: < 2.5s
-- **Time to Interactive**: < 3.0s
-- **Lighthouse Score**: 95+
-
-## 🔒 Security
-
-### Security Measures
-
-1. **Password Security**
-   - PBKDF2 hashing with 100,000 iterations
-   - Cryptographically secure salt generation
-   - Password strength validation
-
-2. **Session Security**
-   - Automatic session timeout
-   - Activity-based session extension
-   - Secure token generation
-
-3. **Data Protection**
-   - AES-GCM encryption for sensitive data
-   - Input sanitization and validation
-   - XSS prevention measures
-
-4. **Access Control**
-   - Role-based permissions
-   - Route protection
-   - Account lockout mechanisms
-
-### Security Best Practices
-
-```javascript
-// Always sanitize user input
-const safeInput = sanitizeInput(userInput);
-
-// Use secure password validation
-const validation = validatePasswordStrength(password);
-if (validation.score < 3) {
-    // Reject weak passwords
-}
-
-// Verify user authentication
-if (!sessionManager.hasValidSession()) {
-    // Redirect to login
-}
-```
-
-## 🤝 Contributing
-
-### Development Setup
-
-1. **Fork the repository**
-2. **Create feature branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Follow coding standards**
-   - Use JSDoc comments for all functions
-   - Add unit tests for new features
-   - Follow existing code style
-4. **Run tests**
-   ```bash
-   # Open test-runner.html and verify all tests pass
-   ```
-5. **Submit pull request**
-
-### Coding Standards
-
-- **ES6+ JavaScript**: Use modern JavaScript features
-- **JSDoc Comments**: Document all public functions
-- **Error Handling**: Implement comprehensive error handling
-- **Security First**: Follow security best practices
-- **Performance**: Optimize for speed and efficiency
-
-## 📚 API Documentation
-
-### Core Modules
-
-#### Authentication
-```javascript
-// Authenticate user
-const result = await authenticateUser(username, password);
-if (result.success) {
-    sessionManager.createSession(result.user);
-}
-```
-
-#### Notifications
-```javascript
-// Show notification
-notificationManager.success('Operation completed successfully');
-notificationManager.error('An error occurred', 'Error', {
-    duration: 0, // Persistent
-    actions: [{
-        text: 'Retry',
-        action: () => retryOperation()
-    }]
-});
-```
-
-#### Form Validation
-```javascript
-// Register form with validation rules
-formValidator.registerForm('#myForm', {
-    realTimeValidation: true,
-    onSubmit: (data) => handleFormSubmit(data)
-});
-
-formValidator.addFieldRules('myForm', '#email', [
-    { type: 'required' },
-    { type: 'email' }
-]);
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Voice commands not working**
-- Ensure microphone permissions are granted
-- Check if voice features are enabled in settings
-- Verify browser supports Web Speech API
-
-**Login issues**
-- Clear browser cache and localStorage
-- Check console for error messages
-- Verify credentials are correct
-
-**Performance issues**
-- Use local server instead of file:// protocol
-- Clear browser cache
-- Check browser developer tools for errors
-
-### Debug Mode
-
-```javascript
-// Enable debug logging
-localStorage.setItem('debug-mode', 'true');
-
-// View session information
-console.log(sessionManager.getSessionInfo());
-
-// Check module loading status
-console.log(moduleLoader.getLoadedModules());
-```
+### Backend Deployment
+1. Deploy to any Node.js hosting platform (Heroku, Vercel, etc.)
+2. Set environment variables in the hosting platform
+3. Ensure MongoDB Atlas is accessible from the hosting platform
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👏 Acknowledgments
-
-- Inspired by the Jarvis AI interface from Marvel
-- Uses modern web standards and best practices
-- Built with accessibility and security in mind
-- Designed for educational and practical use
-
-## 📞 Support
-
-For support, bug reports, or feature requests:
-1. Open an issue on GitHub
-2. Check the troubleshooting section
-3. Review the API documentation
-4. Run the test suite to identify issues
-
----
-
-**Made with ❤️ for the Smart Campus Community**

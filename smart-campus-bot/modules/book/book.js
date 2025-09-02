@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopBtn = document.getElementById('stop-btn');
     const copyBtn = document.getElementById('copy-btn');
     const exportBtn = document.getElementById('export-btn');
-    const saveBtn = document.getElementById('save-btn');
     const statusDiv = document.getElementById('status');
     const outputTextDiv = document.getElementById('output-text');
 
@@ -78,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {boolean} True if user is authenticated admin
      */
     function isAuthenticatedAdmin() {
-        const sessionToken = localStorage.getItem('sessionToken');
+        const sessionToken = localStorage.getItem('authToken');
         const userRole = localStorage.getItem('userRole');
         return sessionToken && userRole === 'admin';
     }
@@ -88,19 +87,41 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     class BookAIProcessor {
         constructor() {
-            this.apiKey = localStorage.getItem('book-tools-api-key') || '';
-            
-            // Allow any model - no restrictions
-            this.model = localStorage.getItem('book-tools-model') || 'openai/gpt-oss-20b:free';
-            
+            // We'll initialize these values when needed
+            this.apiKey = '';
+            this.model = '';
             this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        }
+
+        /**
+         * Initialize AI configuration
+         */
+        async initConfig() {
+            try {
+                // Use the global AI configuration function
+                const config = await getGlobalAIConfig();
+                console.log('Book: Retrieved AI config');
+                this.apiKey = config.book.apiKey || '';
+                this.model = config.book.model || 'openai/gpt-3.5-turbo';
+                // Don't log the actual API key to prevent exposure
+                console.log('Book: Using API Key: ' + (this.apiKey ? 'YES' : 'NO'));
+                console.log('Book: Using Model:', this.model);
+                return !!this.apiKey;
+            } catch (error) {
+                console.error('Error initializing AI config:', error);
+                // Fallback to localStorage
+                this.apiKey = localStorage.getItem('book-tools-api-key') || '';
+                this.model = localStorage.getItem('book-tools-model') || 'openai/gpt-3.5-turbo';
+                return !!this.apiKey;
+            }
         }
 
         /**
          * Test AI connection and update status
          */
         async testConnection() {
-            if (!this.apiKey) {
+            const hasConfig = await this.initConfig();
+            if (!hasConfig) {
                 this.updateStatus('error', 'API key not configured');
                 return false;
             }
@@ -143,13 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         /**
-         * Save configuration to localStorage
+         * Save configuration to localStorage (deprecated - now handled by backend)
          */
         saveConfig(apiKey, model) {
-            this.apiKey = apiKey;
-            this.model = model;
-            localStorage.setItem('book-tools-api-key', apiKey);
-            localStorage.setItem('book-tools-model', model);
+            // This is now handled by the backend
+            console.warn('saveConfig is deprecated. Use the admin dashboard to configure AI settings.');
         }
 
         /**
@@ -159,7 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
          * @returns {Promise<string>} The AI's response content or an error message.
          */
         async callOpenRouter(systemPrompt, userContent) {
-            if (!this.apiKey) {
+            const hasConfig = await this.initConfig();
+            if (!hasConfig) {
                 return "Error: API Key not set. Please configure it in the admin panel.";
             }
 
@@ -167,6 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Track AI requests
                 const currentRequests = parseInt(localStorage.getItem('book-tools-ai-requests') || '0');
                 localStorage.setItem('book-tools-ai-requests', (currentRequests + 1).toString());
+                
+                // Don't log the actual API key to prevent exposure
+                console.log('Book: Making API call with model:', this.model);
 
                 const response = await fetch(this.baseUrl, {
                     method: "POST",
@@ -189,16 +212,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error("API Error:", errorData);
+                    console.error("Book: API Error Response:", errorData);
                     return `API Error: ${errorData.error?.message || 'Unknown error'}`;
                 }
 
                 const data = await response.json();
+                console.log('Book: API Response received');
                 return data.choices[0].message.content;
 
             } catch (error) {
                 console.error("Network or fetch error:", error);
-                return "Error: Could not connect to the AI service. Check your network connection.";
+                return `Error: ${error.message}`;
             }
         }
     }
@@ -434,7 +458,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
 
     saveBtn.addEventListener('click', () => {
         const outputText = outputTextDiv.textContent;

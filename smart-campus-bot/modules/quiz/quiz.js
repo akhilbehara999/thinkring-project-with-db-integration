@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {boolean} True if user is authenticated admin
      */
     function isAuthenticatedAdmin() {
-        const sessionToken = localStorage.getItem('sessionToken');
+        const sessionToken = localStorage.getItem('authToken');
         const userRole = localStorage.getItem('userRole');
         return sessionToken && userRole === 'admin';
     }
@@ -123,19 +123,41 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     class AIQuestionGenerator {
         constructor() {
-            this.apiKey = localStorage.getItem('openrouter-api-key') || '';
-            
-            // Allow any model - no restrictions
-            this.model = localStorage.getItem('ai-model') || 'openai/gpt-oss-20b:free';
-            
+            // We'll initialize these values when needed
+            this.apiKey = '';
+            this.model = '';
             this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        }
+
+        /**
+         * Initialize AI configuration
+         */
+        async initConfig() {
+            try {
+                // Use the global AI configuration function
+                const config = await getGlobalAIConfig();
+                console.log('Quiz: Retrieved AI config');
+                this.apiKey = config.quiz.apiKey || '';
+                this.model = config.quiz.model || 'openai/gpt-3.5-turbo';
+                // Don't log the actual API key to prevent exposure
+                console.log('Quiz: Using API Key: ' + (this.apiKey ? 'YES' : 'NO'));
+                console.log('Quiz: Using Model:', this.model);
+                return !!this.apiKey;
+            } catch (error) {
+                console.error('Error initializing AI config:', error);
+                // Fallback to localStorage
+                this.apiKey = localStorage.getItem('openrouter-api-key') || '';
+                this.model = localStorage.getItem('ai-model') || 'openai/gpt-3.5-turbo';
+                return !!this.apiKey;
+            }
         }
 
         /**
          * Test AI connection and update status
          */
         async testConnection() {
-            if (!this.apiKey) {
+            const hasConfig = await this.initConfig();
+            if (!hasConfig) {
                 this.updateStatus('error', 'API key not configured');
                 return false;
             }
@@ -165,7 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
          * @param {string} difficulty - Difficulty level
          */
         async generateQuestions(topic, count = 5, difficulty = 'medium') {
-            if (!this.apiKey) {
+            const hasConfig = await this.initConfig();
+            if (!hasConfig) {
                 throw new Error('OpenRouter API key not configured');
             }
 
@@ -181,6 +204,9 @@ Format each question as JSON with this exact structure:
 Return ONLY a JSON array of questions, no other text. Make questions educational and accurate.`;
 
             try {
+                // Don't log the actual API key to prevent exposure
+                console.log('Quiz: Making API call with model:', this.model);
+                
                 const response = await fetch(this.baseUrl, {
                     method: 'POST',
                     headers: {
@@ -201,49 +227,21 @@ Return ONLY a JSON array of questions, no other text. Make questions educational
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+                    const errorData = await response.json();
+                    console.error('Quiz: API Error Response:', errorData);
+                    throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
                 }
 
                 const data = await response.json();
-                const aiResponse = data.choices?.[0]?.message?.content;
+                console.log('Quiz: API Response received');
+                const content = data.choices[0].message.content;
                 
-                if (!aiResponse) {
-                    throw new Error('No content in AI response');
-                }
-
-                // Parse the AI response
-                let questions;
-                try {
-                    // Remove any markdown code blocks
-                    const cleanResponse = aiResponse.replace(/```json\n?|```\n?/g, '').trim();
-                    questions = JSON.parse(cleanResponse);
-                } catch (parseError) {
-                    console.error('Parse error:', parseError);
-                    console.log('AI Response:', aiResponse);
-                    throw new Error('Invalid JSON response from AI');
-                }
-
-                // Validate and format questions
-                const validQuestions = questions.filter(q => 
-                    q.question && 
-                    q.correct_answer && 
-                    Array.isArray(q.incorrect_answers) && 
-                    q.incorrect_answers.length >= 3
-                ).map(q => ({
-                    ...q,
-                    id: Date.now() + Math.random(),
-                    category: 'ai-generated',
-                    type: 'multiple',
-                    difficulty: difficulty,
-                    topic: topic
-                }));
-
-                if (validQuestions.length === 0) {
-                    throw new Error('No valid questions generated');
-                }
-
-                return validQuestions;
+                // Extract JSON from response
+                const jsonStart = content.indexOf('[');
+                const jsonEnd = content.lastIndexOf(']') + 1;
+                const jsonString = content.substring(jsonStart, jsonEnd);
+                
+                return JSON.parse(jsonString);
             } catch (error) {
                 console.error('AI Generation Error:', error);
                 throw error;
@@ -978,9 +976,17 @@ Return ONLY a JSON array of questions, no other text. Make questions educational
                 return;
             }
 
-            // Check if API key is configured
-            const apiKey = localStorage.getItem('openrouter-api-key');
-            if (!apiKey || apiKey.trim() === '') {
+            // Check if API key is configured using the global configuration function
+            try {
+                const config = await getGlobalAIConfig();
+                const apiKey = config.quiz.apiKey || '';
+                if (!apiKey || apiKey.trim() === '') {
+                    console.log('Quiz: No API key found, showing error modal');
+                    showErrorModal();
+                    return;
+                }
+            } catch (error) {
+                console.error('Error getting AI config:', error);
                 console.log('Quiz: No API key found, showing error modal');
                 showErrorModal();
                 return;

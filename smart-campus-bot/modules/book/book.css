@@ -270,7 +270,7 @@ main {
     background: linear-gradient(90deg, #8B4513, #DAA520, #8B4513);
 }
 
-#output-container h3 {
+#output-container h2 {
     color: #DAA520;
     font-family: 'Georgia', serif;
     font-size: 1.4em;
@@ -279,7 +279,7 @@ main {
     text-shadow: 0 0 10px rgba(218, 165, 32, 0.3);
 }
 
-#output-content {
+#output-text {
     color: var(--light-text-color);
     font-family: 'Georgia', serif;
     font-size: 16px;
@@ -292,7 +292,7 @@ main {
     letter-spacing: 0.3px;
 }
 
-#output-content::first-letter {
+#output-text::first-letter {
     font-size: 3em;
     font-weight: bold;
     float: left;
@@ -302,7 +302,7 @@ main {
     text-shadow: 2px 2px 4px rgba(139, 69, 19, 0.3);
 }
 
-#output-content p {
+#output-text p {
     margin-bottom: 1.2em;
     text-align: justify;
 }
@@ -564,4 +564,269 @@ main {
     font-size: 0.9em;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+/* Responsive Design for Book Module */
+@media (max-width: 992px) {
+    main {
+        padding: 30px 20px;
+    }
+    
+    .tool-container {
+        max-width: 100%;
+    }
+    
+    header {
+        padding: 15px 20px;
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+    
+    .back-link {
+        align-self: center;
+    }
+    
+    #text-input {
+        height: 250px;
+        padding: 15px;
+    }
+    
+    .controls {
+        padding: 15px;
+        gap: 10px;
+    }
+    
+    .control-group {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .controls button {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+    
+    #output-container {
+        padding: 20px;
+    }
+    
+    #output-text {
+        font-size: 15px;
+        line-height: 1.7;
+    }
+    
+    .analytics-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .stat-card {
+        padding: 15px;
+    }
+    
+    .stat-value {
+        font-size: 1.5em;
+    }
+}
+
+@media (max-width: 768px) {
+    main {
+        padding: 20px 15px;
+    }
+    
+    header {
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 1.8em;
+    }
+    
+    .back-link {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    #text-input {
+        height: 200px;
+        padding: 12px;
+        font-size: 15px;
+    }
+    
+    .controls {
+        flex-direction: column;
+        padding: 15px 10px;
+    }
+    
+    .control-group {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .controls button {
+        padding: 10px 12px;
+        font-size: 13px;
+        flex: 1;
+        min-width: 100px;
+    }
+    
+    #output-container {
+        padding: 15px;
+        margin-top: 20px;
+    }
+    
+    #output-container h2 {
+        font-size: 1.2em;
+        margin-bottom: 15px;
+    }
+    
+    #output-text {
+        font-size: 14px;
+        line-height: 1.6;
+        text-indent: 20px;
+    }
+    
+    #output-text::first-letter {
+        font-size: 2.5em;
+    }
+    
+    .admin-section {
+        padding: 15px 20px;
+    }
+    
+    .admin-section h2 {
+        font-size: 1.4em;
+    }
+    
+    .analytics-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .stat-card {
+        padding: 15px;
+    }
+    
+    .table-wrapper {
+        max-height: 300px;
+    }
+    
+    #summaries-table th, 
+    #summaries-table td {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    main {
+        padding: 15px 10px;
+    }
+    
+    header {
+        padding: 12px 10px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+    }
+    
+    .back-link {
+        padding: 6px 10px;
+        font-size: 13px;
+    }
+    
+    #text-input {
+        height: 180px;
+        padding: 10px;
+        font-size: 14px;
+    }
+    
+    .controls {
+        padding: 12px 8px;
+        gap: 8px;
+    }
+    
+    .control-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .controls button {
+        padding: 8px 10px;
+        font-size: 12px;
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    
+    .controls button:last-child {
+        margin-bottom: 0;
+    }
+    
+    #output-container {
+        padding: 12px;
+        margin-top: 15px;
+        border-radius: 10px;
+    }
+    
+    #output-container h2 {
+        font-size: 1.1em;
+        margin-bottom: 12px;
+    }
+    
+    #output-text {
+        font-size: 13px;
+        line-height: 1.5;
+        text-indent: 15px;
+    }
+    
+    #output-text::first-letter {
+        font-size: 2em;
+    }
+    
+    .admin-section {
+        padding: 12px 15px;
+        margin-bottom: 25px;
+    }
+    
+    .admin-section h2 {
+        font-size: 1.3em;
+        margin-bottom: 15px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .stat-value {
+        font-size: 1.3em;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.8em;
+    }
+    
+    .table-wrapper {
+        max-height: 250px;
+    }
+    
+    #summaries-table th, 
+    #summaries-table td {
+        padding: 6px 8px;
+        font-size: 13px;
+    }
+    
+    #summaries-table .action-btn {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    
+    .reading-mode-toggle {
+        top: 10px;
+        right: 10px;
+        padding: 8px 12px;
+        font-size: 12px;
+    }
 }

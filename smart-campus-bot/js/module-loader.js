@@ -140,6 +140,7 @@ moduleLoader.register('analytics', 'js/modules/analytics.js', ['utils']);
 moduleLoader.register('theme-manager', 'js/modules/theme-manager.js');
 moduleLoader.register('performance-optimizer', 'js/modules/performance-optimizer.js');
 moduleLoader.register('error-handler', 'js/modules/error-handler.js', ['notification-system']);
+moduleLoader.register('data-service', 'js/data-service.js');
 
 // Export for global use
 window.moduleLoader = moduleLoader;
@@ -167,5 +168,5 @@ window.loadModules = async function(modules) {
  */
 document.addEventListener('DOMContentLoaded', () => {
     // Preload essential modules (error handler first for comprehensive error coverage)
-    moduleLoader.preload(['notification-system', 'error-handler', 'session-management', 'performance-optimizer']);
+    moduleLoader.preload(['notification-system', 'error-handler', 'session-management', 'performance-optimizer', 'data-service']);
 });

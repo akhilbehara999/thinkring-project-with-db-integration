@@ -7,14 +7,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('loaded');
     
     // Check for session token
-    if (!localStorage.getItem('sessionToken')) {
+    if (!localStorage.getItem('authToken')) {
         window.location.href = 'index.html';
     }
 
     const logoutBtn = document.getElementById('logout-btn');
     logoutBtn.addEventListener('click', () => {
-        localStorage.removeItem('sessionToken');
+        localStorage.removeItem('authToken');
         localStorage.removeItem('userRole');
+        localStorage.removeItem('username');
         window.location.href = 'index.html';
     });
 

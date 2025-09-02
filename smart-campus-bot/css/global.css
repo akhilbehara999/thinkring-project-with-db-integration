@@ -3,8 +3,10 @@
     --accent-color: #00d4ff;
     --text-color: #ffffff;
     --light-text-color: #e6f3ff;
-    --success-color: #ffd700;
-    --error-color: #ff4757;
+    --success-color: #4ade80;
+    --error-color: #f87171;
+    --warning-color: #fbbf24;
+    --info-color: #60a5fa;
     --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -104,4 +106,52 @@ input:focus, textarea:focus, select:focus {
 
 .global-voice-btn.off {
     background-color: #7f8fa6;
+}
+
+/* Message display for user feedback */
+#message-display {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.message-box {
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    animation: slideIn 0.3s ease, fadeOut 0.5s ease 4.5s forwards;
+}
+
+.message-box.success {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+}
+
+.message-box.error {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+}
+
+.message-box.info {
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+}
+
+.message-box.warning {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
 }

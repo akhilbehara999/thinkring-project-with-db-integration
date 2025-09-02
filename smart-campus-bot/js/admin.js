@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('loaded');
     
     // Check for session token and admin role
-    if (!localStorage.getItem('sessionToken') || localStorage.getItem('userRole') !== 'admin') {
+    if (!localStorage.getItem('authToken') || localStorage.getItem('userRole') !== 'admin') {
         window.location.href = 'index.html';
         return; // Stop execution if not an admin
     }
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     if(logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('sessionToken');
+            localStorage.removeItem('authToken');
             localStorage.removeItem('userRole');
             localStorage.removeItem('username');
             window.location.href = 'index.html';
@@ -159,8 +159,36 @@ document.addEventListener('DOMContentLoaded', () => {
         userSearchInput.addEventListener('input', renderUserTable);
     }
 
+    // Load AI configuration status
+    loadAIConfigStatus();
+
     // Initial population of dashboard elements
     populateOverviewCards();
     populateAdminInsights();
     renderUserTable();
 });
+
+/**
+ * Loads and displays the current AI configuration status
+ */
+async function loadAIConfigStatus() {
+    try {
+        if (window.dataService) {
+            const config = await window.dataService.getAIConfig();
+            
+            // Update the AI Setup button based on configuration status
+            const aiConfigBtn = document.getElementById('ai-config-btn');
+            if (aiConfigBtn) {
+                if (config) {
+                    aiConfigBtn.innerHTML = '🤖 AI Configured';
+                    aiConfigBtn.title = `Configured with model: ${config.model}`;
+                } else {
+                    aiConfigBtn.innerHTML = '🤖 Setup AI';
+                    aiConfigBtn.title = 'Configure AI Settings';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading AI config status:', error);
+    }
+}

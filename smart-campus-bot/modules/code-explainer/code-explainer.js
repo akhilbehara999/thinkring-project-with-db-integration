@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {boolean} True if user is authenticated admin
      */
     function isAuthenticatedAdmin() {
-        const sessionToken = localStorage.getItem('sessionToken');
+        const sessionToken = localStorage.getItem('authToken');
         const userRole = localStorage.getItem('userRole');
         return sessionToken && userRole === 'admin';
     }
@@ -115,19 +115,41 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     class CodeAIAnalyzer {
         constructor() {
-            this.apiKey = localStorage.getItem('code-explainer-api-key') || '';
-            
-            // Allow any model - no restrictions
-            this.model = localStorage.getItem('code-explainer-model') || 'openai/gpt-oss-20b:free';
-            
+            // We'll initialize these values when needed
+            this.apiKey = '';
+            this.model = '';
             this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        }
+
+        /**
+         * Initialize AI configuration
+         */
+        async initConfig() {
+            try {
+                // Use the global AI configuration function
+                const config = await getGlobalAIConfig();
+                console.log('Code Explainer: Retrieved AI config');
+                this.apiKey = config.codeExplainer.apiKey || '';
+                this.model = config.codeExplainer.model || 'openai/gpt-3.5-turbo';
+                // Don't log the actual API key to prevent exposure
+                console.log('Code Explainer: Using API Key: ' + (this.apiKey ? 'YES' : 'NO'));
+                console.log('Code Explainer: Using Model:', this.model);
+                return !!this.apiKey;
+            } catch (error) {
+                console.error('Error initializing AI config:', error);
+                // Fallback to localStorage
+                this.apiKey = localStorage.getItem('code-explainer-api-key') || '';
+                this.model = localStorage.getItem('code-explainer-model') || 'openai/gpt-3.5-turbo';
+                return !!this.apiKey;
+            }
         }
 
         /**
          * Test AI connection and update status
          */
         async testConnection() {
-            if (!this.apiKey) {
+            const hasConfig = await this.initConfig();
+            if (!hasConfig) {
                 this.updateStatus('error', 'API key not configured');
                 return false;
             }
@@ -157,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
          * @param {string} mode - 'analysis', 'explanation', or 'output'
          */
         async analyzeCode(code, language, mode) {
-            if (!this.apiKey) {
+            const hasConfig = await this.initConfig();
+            if (!hasConfig) {
                 throw new Error('OpenRouter API key not configured');
             }
 
@@ -188,22 +211,19 @@ Provide:
 
 Translate complex code into plain, easy-to-understand English. Make it educational and perfect for studying.`,
 
-                output: `As an expert ${language} code executor, analyze this code and provide execution details:
+                output: `Execute the following ${language} code and provide ONLY the direct output that would be produced when the program runs:
 
 \`\`\`${language}
 ${code}
 \`\`\`
 
-Provide:
-1. **Direct Output**: Show the final result the code produces
-2. **Execution Trace**: Step-by-step trace of how the program runs
-3. **Variable Changes**: How variable values change over time
-4. **Input Handling**: If code requires input, use reasonable sample inputs
-
-Simulate the execution environment and show what would happen when this code runs.`
+Provide ONLY the exact output that would be printed to the console or returned by the program. If there are syntax errors or runtime errors that would prevent the code from running, simply respond with "Error: [brief description of the error]". Do not provide any additional analysis, explanation, or trace information. Just the direct output.`
             };
 
             try {
+                // Don't log the actual API key to prevent exposure
+                console.log('Code Explainer: Making API call with model:', this.model);
+
                 const response = await fetch(this.baseUrl, {
                     method: 'POST',
                     headers: {
@@ -214,31 +234,29 @@ Simulate the execution environment and show what would happen when this code run
                     },
                     body: JSON.stringify({
                         model: this.model,
-                        messages: [{
-                            role: 'user',
-                            content: prompts[mode]
-                        }],
-                        temperature: 0.7,
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'You are an expert programming tutor.'
+                            },
+                            {
+                                role: 'user',
+                                content: prompts[mode]
+                            }
+                        ],
+                        temperature: 0.5,
                         max_tokens: 3000
                     })
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+                    const errorData = await response.json();
+                    throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
                 }
 
                 const data = await response.json();
-                const aiResponse = data.choices?.[0]?.message?.content;
-                
-                if (!aiResponse) {
-                    throw new Error('No content in AI response');
-                }
-
-                // Track analytics
-                this.logAnalyticsUsage(language, mode);
-                
-                return aiResponse;
+                console.log('Code Explainer: API Response received');
+                return data.choices[0].message.content;
             } catch (error) {
                 console.error('AI Analysis Error:', error);
                 throw error;
@@ -421,9 +439,18 @@ Simulate the execution environment and show what would happen when this code run
             return;
         }
 
-        // Check if API key is configured
-        const apiKey = localStorage.getItem('code-explainer-api-key');
-        console.log(`🔑 API Key configured: ${apiKey ? '✅ Yes' : '❌ No'}`);
+        // Check if API key is configured using the global configuration function
+        let apiKey = '';
+        try {
+            const config = await getGlobalAIConfig();
+            apiKey = config.codeExplainer.apiKey || '';
+            console.log(`🔑 API Key configured: ${apiKey ? '✅ Yes' : '❌ No'}`);
+        } catch (error) {
+            console.error('Error getting AI config:', error);
+            console.log('🚨 Showing API configuration modal');
+            showErrorModal();
+            return;
+        }
         
         if (!apiKey || apiKey.trim() === '') {
             console.log('🚨 Showing API configuration modal');
@@ -490,7 +517,7 @@ Simulate the execution environment and show what would happen when this code run
             const buttonConfigs = {
                 'analysis': { icon: '🔍', title: 'Analysis', subtitle: 'Syntax & Error Check' },
                 'explanation': { icon: '🧠', title: 'Explainer', subtitle: 'Step-by-Step Breakdown' },
-                'output': { icon: '⚡', title: 'Output', subtitle: 'Execution & Trace' }
+                'output': { icon: '⚡', title: 'Output', subtitle: 'Direct Program Output' }
             };
             
             const config = buttonConfigs[mode];

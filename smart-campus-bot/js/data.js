@@ -2,78 +2,17 @@
  * @file Manages user data for the application with enhanced security.
  */
 
+// Import data service
+// Note: This will be handled by the module loader in the HTML files
+
 /**
  * Initializes the user database in localStorage if it doesn't exist.
  * Populates it with default user data using secure password hashing.
  */
 async function initializeUsers() {
-    let users = JSON.parse(localStorage.getItem('users'));
-    if (!users) {
-        // Initialize with secure password hashes
-        const studentSalt = await generateSalt();
-        const adminSalt = await generateSalt();
-        const testUserSalt = await generateSalt();
-        
-        users = [
-            { 
-                id: 1, 
-                username: 'student', 
-                role: 'student', 
-                status: 'active', 
-                passwordHash: await hashPassword('password123', studentSalt),
-                salt: studentSalt,
-                lastLogin: 'N/A',
-                loginAttempts: 0,
-                lockedUntil: null
-            },
-            { 
-                id: 2, 
-                username: 'KAB', 
-                role: 'admin', 
-                status: 'active', 
-                passwordHash: await hashPassword('7013432177@akhil', adminSalt),
-                salt: adminSalt,
-                lastLogin: 'N/A',
-                loginAttempts: 0,
-                lockedUntil: null
-            },
-            { 
-                id: 3, 
-                username: 'testuser', 
-                role: 'student', 
-                status: 'suspended', 
-                passwordHash: await hashPassword('password', testUserSalt),
-                salt: testUserSalt,
-                lastLogin: '2025-08-16',
-                loginAttempts: 0,
-                lockedUntil: null
-            }
-        ];
-        
-        // Remove old password field if it exists
-        users.forEach(user => {
-            if (user.password) {
-                delete user.password;
-            }
-        });
-        
-        localStorage.setItem('users', JSON.stringify(users));
-    } else {
-        // Migrate existing users to new security model if needed
-        let needsMigration = false;
-        for (let user of users) {
-            if (user.password && !user.passwordHash) {
-                needsMigration = true;
-                break;
-            }
-        }
-        
-        if (needsMigration) {
-            users = await migrateUserPasswords(users);
-            localStorage.setItem('users', JSON.stringify(users));
-        }
-    }
-    return users;
+    // This function is now handled by the backend
+    console.log('User database initialization now handled by backend');
+    return [];
 }
 
 /**
@@ -82,36 +21,20 @@ async function initializeUsers() {
  * @returns {Promise<Array>} Updated users array
  */
 async function migrateUserPasswords(users) {
-    console.log('Migrating user passwords to secure hashes...');
-    
-    for (let user of users) {
-        if (user.password && !user.passwordHash) {
-            const salt = await generateSalt();
-            
-            if (user.role === 'admin' && typeof user.password === 'string' && !user.password.startsWith('-')) {
-                // Handle admin password that might already be hashed with simpleHash
-                user.passwordHash = await hashPassword(user.password, salt);
-            } else {
-                user.passwordHash = await hashPassword(user.password, salt);
-            }
-            
-            user.salt = salt;
-            user.loginAttempts = user.loginAttempts || 0;
-            user.lockedUntil = user.lockedUntil || null;
-            
-            // Remove old password field
-            delete user.password;
-        }
-    }
-    
+    // This function is now handled by the backend
+    console.log('Password migration now handled by backend');
     return users;
 }
 
 /**
- * Retrieves all users from localStorage.
+ * Retrieves all users from the backend.
  * @returns {Array} An array of user objects.
  */
-function getUsers() {
+async function getUsers() {
+    if (window.dataService) {
+        return await window.dataService.getUsers();
+    }
+    // Fallback to localStorage for backward compatibility
     return JSON.parse(localStorage.getItem('users')) || [];
 }
 
@@ -121,12 +44,8 @@ function getUsers() {
  * @param {object} updatedData An object containing the fields to update.
  */
 function updateUser(userId, updatedData) {
-    let users = getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex > -1) {
-        users[userIndex] = { ...users[userIndex], ...updatedData };
-        localStorage.setItem('users', JSON.stringify(users));
-    }
+    // This function is now handled by the backend
+    console.log('User updates now handled by backend');
 }
 
 /**
@@ -136,7 +55,12 @@ function updateUser(userId, updatedData) {
  * @returns {Promise<object>} Authentication result
  */
 async function authenticateUser(username, password) {
-    const users = getUsers();
+    if (window.dataService) {
+        return await window.dataService.authenticateUser(username, password);
+    }
+    
+    // Fallback to localStorage for backward compatibility
+    const users = JSON.parse(localStorage.getItem('users')) || [];
     const user = users.find(u => u.username === username);
     
     const result = {
@@ -219,7 +143,12 @@ async function authenticateUser(username, password) {
  * @returns {Promise<object>} Creation result
  */
 async function createUser(userData) {
-    const users = getUsers();
+    if (window.dataService) {
+        return await window.dataService.createUser(userData);
+    }
+    
+    // Fallback to localStorage for backward compatibility
+    const users = JSON.parse(localStorage.getItem('users')) || [];
     
     // Check if username already exists
     if (users.find(u => u.username === userData.username)) {
@@ -266,7 +195,12 @@ async function createUser(userData) {
  * @returns {Promise<object>} Change result
  */
 async function changeUserPassword(userId, currentPassword, newPassword) {
-    const users = getUsers();
+    if (window.dataService) {
+        return await window.dataService.changeUserPassword(userId, currentPassword, newPassword);
+    }
+    
+    // Fallback to localStorage for backward compatibility
+    const users = JSON.parse(localStorage.getItem('users')) || [];
     const user = users.find(u => u.id === userId);
     
     if (!user) {
@@ -307,20 +241,9 @@ async function changeUserPassword(userId, currentPassword, newPassword) {
 // This ensures that the data is available for other scripts.
 (async () => {
     try {
-        await initializeUsers();
-        console.log('User database initialized with secure password hashing');
+        // Backend initialization is handled separately
+        console.log('Data service ready for use');
     } catch (error) {
-        console.error('Error initializing user database:', error);
-        // Fallback to basic initialization
-        const users = JSON.parse(localStorage.getItem('users'));
-        if (!users) {
-            console.log('Using fallback user initialization');
-            const basicUsers = [
-                { id: 1, username: 'student', role: 'student', status: 'active', password: 'password123', lastLogin: 'N/A' },
-                { id: 2, username: 'KAB', role: 'admin', status: 'active', password: simpleHash('7013432177@akhil'), lastLogin: 'N/A' },
-                { id: 3, username: 'testuser', role: 'student', status: 'suspended', password: 'password', lastLogin: '2025-08-16' }
-            ];
-            localStorage.setItem('users', JSON.stringify(basicUsers));
-        }
+        console.error('Error initializing data service:', error);
     }
 })();
